@@ -8,6 +8,7 @@
 #include <netdb.h>
 
 #define BUFFER_LENGTH 256
+#define LISTEN_BACKLOG 50
 
 void error(const char *message) {
     fprintf(stderr, "%s\n", message);
@@ -40,8 +41,12 @@ int main(int argc, char *argv[]) {
     memcpy(&address.sin_addr.s_addr, server->h_addr, server->h_length);
     address.sin_port = htons(port);
 
-    if (connect(sock, (struct sockaddr *) &address, sizeof(address)) < 0) {
-        error("Connect failed");
+    if (bind(sock, (struct sockaddr *) &address, sizeof(address)) < 0) {
+        error("Could not bind");
+    }
+
+    if (listen(sock, LISTEN_BACKLOG) < 0) {
+        error("Failed listen");
     }
 
     printf("Successful connected to %s:%d\n\n", argv[1], port);
