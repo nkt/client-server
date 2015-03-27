@@ -7,6 +7,7 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <sys/errno.h>
+#include <pthread.h>
 
 #define BUFFER_LENGTH 1024
 
@@ -19,15 +20,24 @@ void error() {
     fprintf(stderr, "%d: %s\n", __LINE__, s);\
     } while(0)
 
-
-const char *receive(int sock) {
+void handle_client(void *data) {
+    DEBUG("handle client");
+    int client = (int) data;
     char message[BUFFER_LENGTH];
-    memset(&message, 0, BUFFER_LENGTH);
-    ssize_t len = read(sock, &message, BUFFER_LENGTH);
-    if (len < 0) {
-        error();
+    ssize_t length;
+    for (; ;) {
+        length = recv(client, &message, BUFFER_LENGTH, 0);
+        if (length <= 0) {
+            break;
+        }
+        DEBUG("message:");
+        DEBUG(message);
+        length = send(client, &message, length, 0);
+        if (length < 0) {
+            break;
+        }
     }
-
+    close(client);
 }
 
 int main(int argc, char *argv[]) {
@@ -71,12 +81,10 @@ int main(int argc, char *argv[]) {
         error();
     }
 
-    fprintf(stderr, "Server started on http://%s:%d", argv[1], port);
+    fprintf(stderr, "Server started on http://%s:%d\n", argv[1], port);
 
-    char message[BUFFER_LENGTH];
     struct sockaddr in_addr;
     socklen_t in_len = sizeof(in_addr);
-    ssize_t length;
 
     for (; ;) {
         memset(&in_addr, 0, in_len);
@@ -86,18 +94,7 @@ int main(int argc, char *argv[]) {
             close(sock);
             error();
         }
-        for (; ;) {
-            length = recv(client, &message, BUFFER_LENGTH, 0);
-            if (length <= 0) {
-                break;
-            }
-            DEBUG("message:");
-            DEBUG(message);
-            length = send(client, &message, length, 0);
-            if (length < 0) {
-                break;
-            }
-        }
-        close(client);
+        pthread_t thread;
+        pthread_create(&thread, NULL, (void *) &handle_client, (void *) client);
     }
 }
